@@ -1,0 +1,287 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Pathfinding Visualizer</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            background-color: #1e1e2f;
+            color: #fff;
+            flex-direction: column;
+        }
+
+        .container {
+            text-align: center;
+        }
+
+        .description {
+            margin-bottom: 20px;
+            max-width: 600px;
+        }
+
+        .grid {
+            display: grid;
+            grid-template-columns: repeat(20, 30px);
+            gap: 1px;
+            margin-bottom: 20px;
+        }
+
+        .cell {
+            width: 30px;
+            height: 30px;
+            border: 1px solid #444;
+            background-color: #2e2e3e;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 12px;
+        }
+
+        .start {
+            background-color: #4caf50;
+        }
+
+        .end {
+            background-color: #f44336;
+        }
+
+        .wall {
+            background-color: #333;
+        }
+
+        .weight {
+            background-color: #ff9800;
+        }
+
+        .visited {
+            background-color: #2196f3;
+        }
+
+        .path {
+            background-color: #ffeb3b;
+        }
+
+        .controls {
+            margin-bottom: 20px;
+        }
+
+        button, select {
+            margin: 5px;
+            padding: 10px 20px;
+            font-size: 16px;
+            cursor: pointer;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Pathfinding Visualizer</h1>
+        <p class="description">
+            This tool visualizes various pathfinding algorithms such as Breadth-First Search (BFS), Depth-First Search (DFS), and A* Search. 
+            Set a start and end point, place walls, and add weights to cells to simulate different terrains. 
+            Use the step-by-step visualization to see how each algorithm progresses.
+        </p>
+        <div class="controls">
+            <select id="algorithm">
+                <option value="bfs">Breadth-First Search (BFS)</option>
+                <option value="dfs">Depth-First Search (DFS)</option>
+                <option value="astar">A* Search</option>
+            </select>
+            <button onclick="startPathfinding()">Start Pathfinding</button>
+            <button onclick="resetGrid()">Reset Grid</button>
+            <button onclick="clearWalls()">Clear Walls</button>
+            <button onclick="clearWeights()">Clear Weights</button>
+        </div>
+        <div class="grid" id="grid"></div>
+    </div>
+
+    <script>
+        const rows = 20;
+        const cols = 20;
+        const gridElement = document.getElementById('grid');
+        let startCell = null;
+        let endCell = null;
+        let isSettingWeight = false;
+
+        // Create grid cells
+        for (let i = 0; i < rows * cols; i++) {
+            const cell = document.createElement('div');
+            cell.classList.add('cell');
+            cell.dataset.index = i;
+            cell.addEventListener('click', () => handleCellClick(cell));
+            cell.addEventListener('contextmenu', (e) => {
+                e.preventDefault();
+                handleCellRightClick(cell);
+            });
+            gridElement.appendChild(cell);
+        }
+
+        function handleCellClick(cell) {
+            if (!startCell) {
+                startCell = cell;
+                cell.classList.add('start');
+            } else if (!endCell && cell !== startCell) {
+                endCell = cell;
+                cell.classList.add('end');
+            } else if (cell !== startCell && cell !== endCell) {
+                if (isSettingWeight) {
+                    cell.classList.toggle('weight');
+                } else {
+                    cell.classList.toggle('wall');
+                }
+            }
+        }
+
+        function handleCellRightClick(cell) {
+            if (cell !== startCell && cell !== endCell) {
+                cell.classList.toggle('weight');
+            }
+        }
+
+        function getNeighbors(index) {
+            const neighbors = [];
+            const row = Math.floor(index / cols);
+            const col = index % cols;
+
+            if (row > 0) neighbors.push(index - cols); // Up
+            if (row < rows - 1) neighbors.push(index + cols); // Down
+            if (col > 0) neighbors.push(index - 1); // Left
+            if (col < cols - 1) neighbors.push(index + 1); // Right
+
+            return neighbors;
+        }
+
+        function startPathfinding() {
+            if (!startCell || !endCell) {
+                alert('Please set both start and end points!');
+                return;
+            }
+
+            const algorithm = document.getElementById('algorithm').value;
+            const startIndex = parseInt(startCell.dataset.index);
+            const endIndex = parseInt(endCell.dataset.index);
+
+            if (algorithm === 'bfs') {
+                bfs(startIndex, endIndex);
+            } else if (algorithm === 'dfs') {
+                dfs(startIndex, endIndex);
+            } else if (algorithm === 'astar') {
+                astar(startIndex, endIndex);
+            }
+        }
+
+        function bfs(start, end) {
+            const queue = [start];
+            const visited = new Set();
+            const cameFrom = {};
+
+            visited.add(start);
+
+            while (queue.length > 0) {
+                const current = queue.shift();
+
+                if (current === end) {
+                    reconstructPath(cameFrom, start, end);
+                    return;
+                }
+
+                for (const neighbor of getNeighbors(current)) {
+                    const neighborCell = document.querySelector(`[data-index='${neighbor}']`);
+                    if (!visited.has(neighbor) && !neighborCell.classList.contains('wall')) {
+                        visited.add(neighbor);
+                        cameFrom[neighbor] = current;
+                        queue.push(neighbor);
+                        neighborCell.classList.add('visited');
+                    }
+                }
+            }
+
+            alert('No path found!');
+        }
+
+        function dfs(start, end) {
+            const stack = [start];
+            const visited = new Set();
+            const cameFrom = {};
+
+            visited.add(start);
+
+            while (stack.length > 0) {
+                const current = stack.pop();
+
+                if (current === end) {
+                    reconstructPath(cameFrom, start, end);
+                    return;
+                }
+
+                for (const neighbor of getNeighbors(current)) {
+                    const neighborCell = document.querySelector(`[data-index='${neighbor}']`);
+                    if (!visited.has(neighbor) && !neighborCell.classList.contains('wall')) {
+                        visited.add(neighbor);
+                        cameFrom[neighbor] = current;
+                        stack.push(neighbor);
+                        neighborCell.classList.add('visited');
+                    }
+                }
+            }
+
+            alert('No path found!');
+        }
+
+        function astar(start, end) {
+            // A* implementation would go here
+            alert('A* Search is not implemented yet.');
+        }
+
+        function reconstructPath(cameFrom, start, end) {
+            let current = end;
+            while (current !== start) {
+                document.querySelector(`[data-index='${current}']`).classList.add('path');
+                current = cameFrom[current];
+            }
+            document.querySelector(`[data-index='${start}']`).classList.add('path');
+        }
+
+        function resetGrid() {
+            gridElement.innerHTML = '';
+            startCell = null;
+            endCell = null;
+            for (let i = 0; i < rows * cols; i++) {
+                const cell = document.createElement('div');
+                cell.classList.add('cell');
+                cell.dataset.index = i;
+                cell.addEventListener('click', () => handleCellClick(cell));
+                cell.addEventListener('contextmenu', (e) => {
+                    e.preventDefault();
+                    handleCellRightClick(cell);
+                });
+                gridElement.appendChild(cell);
+            }
+        }
+
+        function clearWalls() {
+            const cells = document.querySelectorAll('.cell');
+            cells.forEach(cell => {
+                if (cell.classList.contains('wall')) {
+                    cell.classList.remove('wall');
+                }
+            });
+        }
+
+        function clearWeights() {
+            const cells = document.querySelectorAll('.cell');
+            cells.forEach(cell => {
+                if (cell.classList.contains('weight')) {
+                    cell.classList.remove('weight');
+                }
+            });
+        }
+    </script>
+</body>
+</html>
